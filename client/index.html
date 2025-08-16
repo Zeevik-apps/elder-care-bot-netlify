@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>שלום, אני כאן בשבילך</title>
+<style>
+  body { font-family: Arial, sans-serif; background:#ffffff; color:#111; margin:0; }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 24px; }
+  h1 { font-size: 2rem; margin-bottom: 8px; }
+  #bigBtn {
+    width: 100%; font-size: 2rem; padding: 28px; border-radius: 16px;
+    border: 0; background:#2e7; cursor: pointer;
+  }
+  #bigBtn.listening { background:#0c6; }
+  #output { font-size: 1.4rem; line-height:1.6; margin-top: 18px; }
+  #say { margin-top: 12px; font-size: 1.1rem; }
+  .footer { margin-top: 28px; font-size: 0.95rem; color:#444; }
+  .hidden { display:none; }
+  #typedBox { width:100%; font-size:1.2rem; padding:12px; border-radius:12px; border:1px solid #ccc; margin-top:10px;}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>שלום! לחצי על הכפתור ודברי איתי</h1>
+    <button id="bigBtn">🎙️ דברי איתי</button>
+    <div id="fallback" class="hidden">
+      <p>אם המיקרופון לא נתמך, אפשר לכתוב לי כאן:</p>
+      <textarea id="typedBox" rows="3" placeholder="כתבי מה שבא לך..."></textarea>
+      <button id="sendTyped">שלחי</button>
+    </div>
+    <div id="output" aria-live="polite"></div>
+    <button id="say" style="display:none;">🔊 השמיעי שוב</button>
+    <div class="footer">טיפ: אפשר לדבר לאט, ואני אקשיב בסבלנות.</div>
+  </div>
+
+<script>
+const btn = document.getElementById('bigBtn');
+const out = document.getElementById('output');
+const sayBtn = document.getElementById('say');
+const fallback = document.getElementById('fallback');
+const typedBox = document.getElementById('typedBox');
+const sendTyped = document.getElementById('sendTyped');
+
+let lastReply = '';
+let recognizing = false;
+let rec;
+
+function supportsSpeech() {
+  return 'webkitSpeechRecognition' in window || 'SpeechRecognition' in window;
+}
+
+function initRec() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  rec = new SR();
+  rec.lang = 'he-IL';
+  rec.interimResults = false;
+  rec.maxAlternatives = 1;
+
+  rec.onresult = async (e) => {
+    const text = e.results[0][0].transcript;
+    await handleUserText(text);
+  };
+
+  rec.onend = () => { recognizing = false; btn.classList.remove('listening'); btn.innerText = '🎙️ דברי איתי'; };
+  rec.onerror = () => { recognizing = false; btn.classList.remove('listening'); };
+}
+
+async function handleUserText(text) {
+  out.innerText = 'את אמרת: ' + text + '\n— חושבת לרגע...';
+  const reply = await fetch('/.netlify/functions/chat', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ text })
+  }).then(r=>r.json()).catch(()=>({reply:'סליחה, לא הצלחתי לענות כרגע.'}));
+  lastReply = reply.reply || 'סליחה, לא הצלחתי לענות.';
+  out.innerText = lastReply;
+  sayBtn.style.display = 'inline-block';
+  const audio = await fetch('/.netlify/functions/speak', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ text: lastReply })
+  }).then(r=>r.json()).catch(()=>({ mp3:null }));
+  if (audio && audio.mp3) new Audio(audio.mp3).play();
+}
+
+btn.onclick = () => {
+  if (!supportsSpeech()) { fallback.classList.remove('hidden'); return; }
+  if (!rec) initRec();
+  if (!recognizing) { recognizing = true; btn.classList.add('listening'); btn.innerText='🔴 מקשיבה...'; rec.start(); }
+};
+
+sayBtn.onclick = async () => {
+  if (!lastReply) return;
+  const audio = await fetch('/.netlify/functions/speak', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ text: lastReply })
+  }).then(r=>r.json());
+  if (audio && audio.mp3) new Audio(audio.mp3).play();
+};
+
+sendTyped.onclick = async () => {
+  const text = typedBox.value.trim();
+  if (!text) return;
+  await handleUserText(text);
+};
+</script>
+</body>
+</html>
