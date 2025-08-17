@@ -13,7 +13,7 @@ export const handler = async (event) => {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini-tts',
+        model: 'gpt-4o-transcribe',
         voice: 'alloy',   // אפשר להחליף קול בהמשך
         format: 'mp3',
         input: text
