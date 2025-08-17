@@ -13,7 +13,7 @@ export const handler = async (event) => {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: 'gpt-4o',
+        model: 'gpt-4.1-nano',
         instructions: `את צ'אטבוטית חמה, סבלנית ויצירתית המלווה אישה בת 85. דברי בעברית פשוטה, משפטים קצרים, טון מעודד ונעים. שלבי מעט הומור עדין. אוהבת ציור וסיפורים חיוביים ומדע/חדשנות בניסוח נגיש.`,
         input: [{ role: 'user', content: text }]
       })
