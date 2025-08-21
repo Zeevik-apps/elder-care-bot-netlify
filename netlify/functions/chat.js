@@ -1,62 +1,70 @@
-import OpenAI from 'openai';
-import { chooseModel, MODELS } from './config/models.js';
+// netlify/functions/chat.js
+const fetch = require('node-fetch');
 
-/**
- * Run a single chat completion against OpenAI. The model used for the request
- * is selected via the `tier` argument and resolved through `chooseModel`. If
- * the chosen model cannot be found, a fallback model is attempted and the
- * error is logged with the offending model name to aid debugging.
- *
- * @param {string} prompt The user input to send to the assistant.
- * @param {Object} opts Additional options.
- * @param {'cheap'|'default'|'quality'|'o'} [opts.tier='default'] The model
- *   tier to use for text completions.
- * @returns {Promise<string>} The assistant's reply.
- */
-export async function runChat(prompt, { tier = 'cheap' } = {}) {
-  const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-  const modelName = chooseModel({ kind: 'text', tier });
+exports.handler = async (event) => {
   try {
-    const res = await client.responses.create({
-      model: modelName,
-      input: prompt,
-      temperature: 0.7,
-    });
-    return res.output_text;
-  } catch (error) {
-    // Log the error and model that caused it. This will surface any
-    // lingering hard‑coded model names in your codebase.
-    console.error(
-      `OpenAI request failed for model "${modelName}":`,
-      error?.error || error
-    );
-    // If the error indicates the model does not exist, attempt a fallback.
-    const code = error?.error?.code || error?.code;
-    const status = error?.statusCode || error?.status || error?.error?.status;
-    if (
-      code === 'model_not_found' ||
-      status === 400 ||
-      status === 404
-    ) {
-      const fallbackModel = chooseModel({ kind: 'text', tier: 'default' });
-      // Avoid infinite recursion if the fallback is the same as the original.
-      if (fallbackModel !== modelName) {
-        try {
-          const fallbackRes = await client.responses.create({
-            model: fallbackModel,
-            input: prompt,
-            temperature: 0.7,
-          });
-          return fallbackRes.output_text;
-        } catch (fallbackError) {
-          console.error(
-            `Fallback OpenAI request failed for model "${fallbackModel}":`,
-            fallbackError?.error || fallbackError
-          );
-          throw fallbackError;
-        }
-      }
+    const { text } = JSON.parse(event.body || '{}');
+    console.log('Received input:', text); // Debug input
+
+    if (!text) {
+      console.log('No text provided in request');
+      return { 
+        statusCode: 400, 
+        body: JSON.stringify({ 
+          error: 'missing text',
+          details: 'Please provide text input' 
+        }) 
+      };
     }
-    throw error;
+
+    console.log('Calling OpenAI API...'); // Debug API call
+    const r = await fetch('https://api.openai.com/v1/chat/completions', { // Fixed API endpoint
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: 'gpt-4', // Fixed model name
+        messages: [{ 
+          role: 'system',
+          content: `את צ'אטבוטית חמה, סבלנית ויצירתית המלווה אישה בת 85. דברי בעברית פשוטה, משפטים קצרים, טון מעודד ונעים. שלבי מעט הומור עדין. אוהבת ציור וסיפורים חיוביים ומדע/חדשנות בניסוח נגיש.`
+        },
+        { 
+          role: 'user', 
+          content: text 
+        }]
+      })
+    });
+
+    const data = await r.json();
+    console.log('OpenAI response:', data); // Debug response
+
+    if (!data.choices || !data.choices[0]) {
+      console.error('Invalid API response:', data);
+      return {
+        statusCode: 500,
+        body: JSON.stringify({ 
+          error: 'invalid_response',
+          details: 'Unexpected API response format' 
+        })
+      };
+    }
+
+    const reply = data.choices[0].message.content;
+    return {
+      statusCode: 200,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reply })
+    };
+  } catch (e) {
+    console.error('Error details:', e);
+    return { 
+      statusCode: 500, 
+      body: JSON.stringify({ 
+        error: 'chat_failure',
+        details: e.message 
+      }) 
+    };
   }
-}
+};

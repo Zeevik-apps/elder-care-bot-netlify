@@ -1,9 +1,7 @@
 {
   "name": "elder-care-bot-netlify",
-  "version": "0.1.0",
-  "type": "module",
+  "version": "1.0.0",
   "dependencies": {
-    "node-fetch": "^3.3.2"
-  },
-  "devDependencies": {}
+    "node-fetch": "^2.7.0"
+  }
 }

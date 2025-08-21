@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="he">
+<head>
+    <meta charset="UTF-8">
+    <title>בוט לטיפול בקשישים</title>
+</head>
+<body>
+    <div id="status">מוכן להקשבה</div>
+    <button onclick="recognition.start()">התחל הקלטה</button>
+    <div id="response"></div>
+    <input type="text" id="textInput" placeholder="או הקלד/י כאן...">
+    <button onclick="sendToBot(document.getElementById('textInput').value)">שלח</button>
+    <script src="script.js"></script>
+    <script>initSpeechRecognition();</script>
+</body>
+</html>
